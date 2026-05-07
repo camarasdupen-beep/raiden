@@ -1,6 +1,4 @@
-// netlify/functions/expiries.js
-// Storage compartido usando Upstash Redis (free tier, sin dependencias npm)
-// Si no está configurado, devuelve vacío sin romper la app.
+// expiries.js — usa fetch directo a Upstash con logs para diagnosticar
 
 const HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,57 +7,55 @@ const HEADERS = {
   'Content-Type': 'application/json',
 };
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const KEY = 'raiden_expiries';
-
-async function redisGet() {
-  const r = await fetch(`${UPSTASH_URL}/get/${KEY}`, {
-    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
-  });
-  const d = await r.json();
-  return d.result ? JSON.parse(d.result) : {};
-}
-
-async function redisSet(data) {
-  await fetch(`${UPSTASH_URL}/set/${KEY}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${UPSTASH_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(JSON.stringify(data)),
-  });
-}
-
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: HEADERS, body: '' };
   }
 
-  // Si no está configurado Upstash, devolvemos vacío sin error
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+  const URL   = process.env.UPSTASH_REDIS_REST_URL;
+  const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!URL || !TOKEN) {
     return {
       statusCode: 200,
       headers: HEADERS,
-      body: JSON.stringify({ _error: 'not_configured' }),
+      body: JSON.stringify({ _error: 'not_configured', _detail: 'Faltan env vars UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN' }),
     };
   }
 
+  const KEY = 'raiden_expiries_v2';
+
   if (event.httpMethod === 'GET') {
     try {
-      const data = await redisGet();
+      const r = await fetch(`${URL}/get/${KEY}`, {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      });
+      const text = await r.text();
+      let result = null;
+      try { result = JSON.parse(text).result; } catch(e) {}
+      const data = result ? JSON.parse(result) : {};
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify(data) };
     } catch (e) {
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({}) };
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ _error: e.message }) };
     }
   }
 
   if (event.httpMethod === 'POST') {
     try {
       const body = JSON.parse(event.body || '{}');
-      await redisSet(body);
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
+      const r = await fetch(`${URL}/set/${KEY}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(JSON.stringify(body)),
+      });
+      const text = await r.text();
+      if (r.ok) {
+        return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
+      }
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: false, detail: text }) };
     } catch (e) {
       return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ ok: false, error: e.message }) };
     }
