@@ -1,6 +1,5 @@
 // netlify/functions/expiries.js
-// Base de datos de vencimientos compartida entre los 3 celulares
-// Usa Netlify Blobs (storage gratuito incluido en Netlify)
+// Almacenamiento compartido usando Netlify Blobs (gratuito, sin configuración extra)
 
 const { getStore } = require('@netlify/blobs');
 
@@ -16,40 +15,27 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: HEADERS, body: '' };
   }
 
-  try {
-    // Intentar usar Netlify Blobs
-    const store = getStore({ name: 'vencimientos', consistency: 'strong' });
+  const store = getStore({ name: 'vencimientos', consistency: 'strong' });
 
-    if (event.httpMethod === 'GET') {
-      let data = {};
-      try {
-        const raw = await store.get('expiries');
-        if (raw) data = JSON.parse(raw);
-      } catch (e) { data = {}; }
+  // ── GET: leer vencimientos ──────────────────────────────────────────────
+  if (event.httpMethod === 'GET') {
+    try {
+      const raw = await store.get('expiries');
+      const data = raw ? JSON.parse(raw) : {};
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify(data) };
+    } catch (e) {
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({}) };
     }
+  }
 
-    if (event.httpMethod === 'POST') {
+  // ── POST: guardar vencimientos ──────────────────────────────────────────
+  if (event.httpMethod === 'POST') {
+    try {
       const body = JSON.parse(event.body || '{}');
       await store.set('expiries', JSON.stringify(body));
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
-    }
-
-  } catch (blobError) {
-    // Fallback: si Blobs no está disponible, retornar datos vacíos con info
-    if (event.httpMethod === 'GET') {
-      return {
-        statusCode: 200,
-        headers: HEADERS,
-        body: JSON.stringify({ _error: 'blob_unavailable', _msg: 'Activá Netlify Blobs en el panel' }),
-      };
-    }
-    if (event.httpMethod === 'POST') {
-      return {
-        statusCode: 200,
-        headers: HEADERS,
-        body: JSON.stringify({ ok: false, error: 'Netlify Blobs no disponible: ' + blobError.message }),
-      };
+    } catch (e) {
+      return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ ok: false, error: e.message }) };
     }
   }
 
