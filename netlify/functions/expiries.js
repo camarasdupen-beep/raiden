@@ -1,5 +1,3 @@
-// expiries.js — usa fetch directo a Upstash con logs para diagnosticar
-
 const HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
@@ -12,52 +10,50 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: HEADERS, body: '' };
   }
 
-  const URL   = process.env.UPSTASH_REDIS_REST_URL;
-  const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const REDIS_URL   = process.env.UPSTASH_REDIS_REST_URL;
+  const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const KEY = 'raiden_expiries_v3';
 
-  if (!URL || !TOKEN) {
-    return {
-      statusCode: 200,
-      headers: HEADERS,
-      body: JSON.stringify({ _error: 'not_configured', _detail: 'Faltan env vars UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN' }),
-    };
+  if (!REDIS_URL || !REDIS_TOKEN) {
+    return { statusCode: 200, headers: HEADERS,
+      body: JSON.stringify({ _error: 'not_configured' }) };
   }
 
-  const KEY = 'raiden_expiries_v2';
-
+  // GET — leer vencimientos
   if (event.httpMethod === 'GET') {
     try {
-      const r = await fetch(`${URL}/get/${KEY}`, {
-        headers: { Authorization: `Bearer ${TOKEN}` },
+      const r    = await fetch(`${REDIS_URL}/get/${KEY}`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
       });
-      const text = await r.text();
-      let result = null;
-      try { result = JSON.parse(text).result; } catch(e) {}
-      const data = result ? JSON.parse(result) : {};
+      const json = await r.json();
+      // Upstash devuelve { result: "string_json" } o { result: null }
+      const data = json.result ? JSON.parse(json.result) : {};
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify(data) };
-    } catch (e) {
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ _error: e.message }) };
+    } catch(e) {
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({}) };
     }
   }
 
+  // POST — guardar vencimientos
   if (event.httpMethod === 'POST') {
     try {
-      const body = JSON.parse(event.body || '{}');
-      const r = await fetch(`${URL}/set/${KEY}`, {
+      const data = JSON.parse(event.body || '{}');
+      // Upstash REST: SET key value — el value va como string JSON
+      const r = await fetch(`${REDIS_URL}/set/${KEY}`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${TOKEN}`,
+          Authorization: `Bearer ${REDIS_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(JSON.stringify(body)),
+        // Upstash espera el body como: ["SET", "key", "value"]
+        body: JSON.stringify(['SET', KEY, JSON.stringify(data)])
       });
-      const text = await r.text();
-      if (r.ok) {
-        return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
-      }
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: false, detail: text }) };
-    } catch (e) {
-      return { statusCode: 500, headers: HEADERS, body: JSON.stringify({ ok: false, error: e.message }) };
+      const json = await r.json();
+      const ok   = json.result === 'OK';
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok }) };
+    } catch(e) {
+      return { statusCode: 500, headers: HEADERS,
+        body: JSON.stringify({ ok: false, error: e.message }) };
     }
   }
 
