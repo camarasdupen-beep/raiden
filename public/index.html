@@ -256,7 +256,7 @@ function loadExpiries() {
   return fetch('/api/expiries')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d && !d._error && typeof d === 'object') {
+      if (d && !d._error && !d.error && typeof d === 'object') {
         // Mergear: los datos locales más recientes ganan
         var local = {};
         try { local = JSON.parse(localStorage.getItem(EX_KEY) || '{}'); } catch(e){}
@@ -292,8 +292,10 @@ function saveExpiries() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(expiries)
   })
-  .then(function(r){
-    if (r.ok) { setSyncStatus(true); return true; }
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if (d && d.ok === true) { setSyncStatus(true); return true; }
+    setSyncStatus(false);
     return false;
   })
   .catch(function(){ setSyncStatus(false); return false; });
