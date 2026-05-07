@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#111827">
+<title>RAIDEN · Vencimientos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0F1117;
+  --surface: #181C27;
+  --surface2: #1E2333;
+  --surface3: #252A3D;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #E8EAF0;
+  --text2: #8B90A0;
+  --text3: #555B70;
+  --accent: #4F7EF7;
+  --accent2: #2D5BD4;
+  --red: #F25757;
+  --red-dim: rgba(242,87,87,0.12);
+  --orange: #F5943A;
+  --orange-dim: rgba(245,148,58,0.12);
+  --yellow: #EAC545;
+  --yellow-dim: rgba(234,197,69,0.12);
+  --green: #3DD68C;
+  --green-dim: rgba(61,214,140,0.12);
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+.hdr {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  height: 56px;
+  display: flex; align-items: center; gap: 12px;
+}
+.brand {
+  font-family: var(--mono);
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 3px;
+  color: var(--accent);
+  flex: 1;
+}
+.brand span { color: var(--text3); }
+.sync-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: transparent; color: var(--text2);
+  font-family: var(--mono); font-size: 11px;
+  cursor: pointer; transition: all .15s;
+  letter-spacing: .5px;
+}
+.sync-btn:hover { border-color: var(--accent); color: var(--accent); }
+.sync-btn svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+.sync-btn.loading svg { animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── SETUP TOKEN ─────────────────────────────────────────────────── */
+.setup {
+  margin: 16px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+}
+.setup-title { font-family: var(--mono); font-size: 12px; letter-spacing: 1px; color: var(--accent); margin-bottom: 8px; }
+.setup p { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 14px; }
+.setup p code { font-family: var(--mono); font-size: 12px; color: var(--text); background: var(--surface3); padding: 1px 5px; border-radius: 3px; }
+.setup-row { display: flex; gap: 8px; }
+.setup-row input {
+  flex: 1; padding: 9px 12px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 6px; color: var(--text);
+  font-family: var(--mono); font-size: 12px; outline: none;
+}
+.setup-row input:focus { border-color: var(--accent); }
+.btn-connect {
+  padding: 9px 16px; border-radius: 6px; border: none;
+  background: var(--accent); color: #fff;
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
+  cursor: pointer; letter-spacing: .5px; white-space: nowrap;
+}
+
+/* ── STATS ───────────────────────────────────────────────────────── */
+.stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 8px; padding: 14px 16px 8px;
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 8px; text-align: center;
+}
+.stat-n {
+  font-family: var(--mono);
+  font-size: 24px; font-weight: 500;
+  line-height: 1;
+}
+.stat-l {
+  font-size: 10px; color: var(--text3);
+  margin-top: 4px; letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.stat.r .stat-n { color: var(--red); }
+.stat.o .stat-n { color: var(--orange); }
+.stat.y .stat-n { color: var(--yellow); }
+.stat.g .stat-n { color: var(--green); }
+
+/* ── FILTROS ─────────────────────────────────────────────────────── */
+.filters {
+  display: flex; gap: 6px;
+  padding: 8px 16px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+.chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text3);
+  font-family: var(--mono); font-size: 11px;
+  cursor: pointer; white-space: nowrap;
+  transition: all .15s; letter-spacing: .3px;
+}
+.chip.active { border-color: var(--accent2); background: rgba(79,126,247,0.1); color: var(--accent); }
+.chip-n { opacity: .6; }
+
+/* ── BÚSQUEDA ────────────────────────────────────────────────────── */
+.srch {
+  position: relative; padding: 4px 16px 10px;
+}
+.srch svg {
+  position: absolute; left: 26px; top: 50%; transform: translateY(-50%);
+  width: 15px; height: 15px; stroke: var(--text3); stroke-width: 2;
+  fill: none; stroke-linecap: round;
+}
+.srch input {
+  width: 100%; padding: 9px 12px 9px 36px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+  font-family: var(--sans); font-size: 14px; outline: none;
+}
+.srch input:focus { border-color: var(--border2); }
+.srch input::placeholder { color: var(--text3); }
+
+/* ── SYNC STATUS ─────────────────────────────────────────────────── */
+.sync-st {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 16px 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+}
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.dot.off { background: var(--text3); }
+.dot.warn { background: var(--yellow); }
+
+/* ── LISTA ───────────────────────────────────────────────────────── */
+.list { padding: 0 16px 100px; display: flex; flex-direction: column; gap: 6px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; transition: border-color .15s;
+  position: relative; overflow: hidden;
+}
+.card::before {
+  content: ''; position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+}
+.card:hover { border-color: var(--border2); }
+.card:active { opacity: .85; }
+.card.red::before { background: var(--red); }
+.card.orange::before { background: var(--orange); }
+.card.yellow::before { background: var(--yellow); }
+.card.green::before { background: var(--green); }
+.card.none::before { background: var(--border2); }
+
+.c-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px; flex-shrink: 0;
+}
+.c-body { flex: 1; min-width: 0; }
+.c-name {
+  font-size: 14px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.c-meta { font-size: 12px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+.c-right { text-align: right; flex-shrink: 0; }
+.c-date {
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
+}
+.c-date.red { color: var(--red); }
+.c-date.orange { color: var(--orange); }
+.c-date.yellow { color: var(--yellow); }
+.c-date.green { color: var(--green); }
+.c-date.none { color: var(--text3); }
+.badge {
+  display: inline-block; font-family: var(--mono);
+  font-size: 10px; font-weight: 500;
+  padding: 2px 7px; border-radius: 4px; margin-top: 3px;
+  letter-spacing: .3px;
+}
+.badge.red { background: var(--red-dim); color: var(--red); }
+.badge.orange { background: var(--orange-dim); color: var(--orange); }
+.badge.yellow { background: var(--yellow-dim); color: var(--yellow); }
+.badge.green { background: var(--green-dim); color: var(--green); }
+.badge.none { background: var(--surface2); color: var(--text3); }
+
+.del-btn {
+  background: none; border: none; cursor: pointer;
+  padding: 6px; border-radius: 6px;
+  color: var(--text3); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .15s, background .15s;
+}
+.del-btn:hover { color: var(--red); background: var(--red-dim); }
+.del-btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+
+/* ── EMPTY ───────────────────────────────────────────────────────── */
+.empty { text-align: center; padding: 50px 20px; color: var(--text3); }
+.empty-ico { font-size: 44px; margin-bottom: 12px; }
+.empty p { font-size: 13px; line-height: 1.7; font-family: var(--mono); }
+
+/* ── FAB ─────────────────────────────────────────────────────────── */
+.fab {
+  position: fixed; bottom: 24px; right: 20px;
+  width: 52px; height: 52px; border-radius: 26px;
+  background: var(--accent); color: #fff; border: none;
+  font-size: 26px; cursor: pointer; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(79,126,247,0.4);
+  transition: transform .15s;
+}
+.fab:active { transform: scale(.9); }
+
+/* ── MODAL ───────────────────────────────────────────────────────── */
+.ovl {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  z-index: 200; display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.ovl.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 540px;
+  max-height: 88vh; overflow-y: auto;
+  padding: 20px 18px 36px;
+  transform: translateY(50px); transition: transform .25s;
+}
+.ovl.open .modal { transform: translateY(0); }
+.m-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.m-title { font-family: var(--mono); font-size: 13px; letter-spacing: 1px; color: var(--text); }
+.m-close {
+  background: var(--surface2); border: none;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text2);
+}
+.m-close svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+
+.field { margin-bottom: 16px; }
+.field label {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); display: block; margin-bottom: 7px;
+  letter-spacing: .5px; text-transform: uppercase;
+}
+.field input {
+  width: 100%; padding: 10px 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+  font-family: var(--sans); font-size: 14px; outline: none;
+}
+.field input:focus { border-color: var(--accent); }
+.field input[type="date"] { font-family: var(--mono); color-scheme: dark; }
+
+.p-list {
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 6px; margin-top: 5px;
+  background: var(--surface2);
+}
+.p-item {
+  padding: 9px 12px; display: flex; align-items: center; gap: 9px;
+  cursor: pointer; border-bottom: 1px solid var(--border);
+  transition: background .1s;
+}
+.p-item:last-child { border-bottom: none; }
+.p-item:hover, .p-item.sel { background: rgba(79,126,247,0.1); }
+.p-item.sel { border-left: 2px solid var(--accent); }
+.p-n { font-size: 13px; font-weight: 500; }
+.p-c { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 1px; }
+
+.m-btns { display: flex; gap: 8px; margin-top: 22px; }
+.b-cancel {
+  flex: 1; padding: 12px; border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: transparent; color: var(--text2);
+  font-family: var(--mono); font-size: 12px; cursor: pointer;
+  letter-spacing: .5px;
+}
+.b-save {
+  flex: 2; padding: 12px; border-radius: 6px;
+  border: none; background: var(--accent); color: #fff;
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
+  cursor: pointer; letter-spacing: .5px;
+}
+
+/* ── TOAST ───────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--surface2); border: 1px solid var(--border2);
+  padding: 9px 18px; border-radius: 6px;
+  font-family: var(--mono); font-size: 12px; color: var(--text);
+  z-index: 300; opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none; white-space: nowrap;
+  letter-spacing: .3px;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── LOADING ─────────────────────────────────────────────────────── */
+.loading-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 20px 16px; color: var(--text3);
+  font-family: var(--mono); font-size: 12px;
+}
+.spinner {
+  width: 16px; height: 16px; border: 2px solid var(--border2);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="brand">RAIDEN <span>// venc.</span></div>
+  <button class="sync-btn" id="syncBtn" onclick="syncLoyverse()">
+    <svg id="sIcon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    SYNC
+  </button>
+</div>
+
+<!-- Setup token (solo si no está configurado en Netlify env) -->
+<div id="setupPanel" class="setup" style="display:none">
+  <div class="setup-title">// CONFIGURAR TOKEN</div>
+  <p>
+    Ingresá tu Token de API de Loyverse.<br>
+    Lo encontrás en: <code>Loyverse → Configuración → API</code>
+  </p>
+  <div class="setup-row">
+    <input type="password" id="tokenInput" placeholder="Token de Loyverse..." autocomplete="off" />
+    <button class="btn-connect" onclick="saveToken()">CONECTAR</button>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat r"><div class="stat-n" id="s7">0</div><div class="stat-l">7 días</div></div>
+  <div class="stat o"><div class="stat-n" id="s15">0</div><div class="stat-l">15 días</div></div>
+  <div class="stat y"><div class="stat-n" id="s30">0</div><div class="stat-l">1 mes</div></div>
+  <div class="stat g"><div class="stat-n" id="s60">0</div><div class="stat-l">2 meses</div></div>
+</div>
+
+<div class="filters">
+  <div class="chip active" onclick="setFilter('all',this)">TODOS <span class="chip-n" id="ca">0</span></div>
+  <div class="chip" onclick="setFilter('urgent',this)">● URGENTE <span class="chip-n" id="cu">0</span></div>
+  <div class="chip" onclick="setFilter('warn',this)">● PRONTO <span class="chip-n" id="cw">0</span></div>
+  <div class="chip" onclick="setFilter('ok',this)">● OK <span class="chip-n" id="co">0</span></div>
+  <div class="chip" onclick="setFilter('nodate',this)">SIN FECHA <span class="chip-n" id="cn0">0</span></div>
+</div>
+
+<div class="srch">
+  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  <input type="text" id="searchInput" placeholder="Buscar producto..." oninput="renderList()" />
+</div>
+
+<div class="sync-st">
+  <div class="dot off" id="syncDot"></div>
+  <span id="syncTxt">Iniciando...</span>
+</div>
+
+<div class="list" id="list"></div>
+
+<button class="fab" onclick="openModal()" aria-label="Agregar vencimiento">+</button>
+
+<!-- MODAL -->
+<div class="ovl" id="ovl" onclick="bgClose(event)">
+  <div class="modal">
+    <div class="m-hdr">
+      <span class="m-title" id="mTitle">// CARGAR VENCIMIENTO</span>
+      <button class="m-close" onclick="closeModal()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+
+    <div class="field">
+      <label>Producto</label>
+      <input type="text" id="pSearch" placeholder="Buscar en lista de Loyverse..." oninput="filterProds()" autocomplete="off" />
+      <div class="p-list" id="pList"></div>
+    </div>
+
+    <div class="field">
+      <label>Fecha de vencimiento</label>
+      <input type="date" id="eDate" />
+    </div>
+
+    <div class="field">
+      <label>Lote / nota (opcional)</label>
+      <input type="text" id="eNote" placeholder="Ej: Lote 25-A · Heladera 2..." />
+    </div>
+
+    <div class="m-btns">
+      <button class="b-cancel" onclick="closeModal()">CANCELAR</button>
+      <button class="b-save" onclick="saveExp()">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────────────────
+const BASE = ''; // vacío = misma URL de Netlify
+const TK_KEY = 'lv_token_v2';
+const PC_KEY = 'lv_prods_v3';
+const EX_KEY = 'lv_expiries_v3';
+
+let products = [];
+let expiries = {};
+let selId = null;
+let editId = null;
+let activeFilter = 'all';
+
+// ── API CALLS ────────────────────────────────────────────────────────────
+async function apiLoyverse(path = '/items', params = {}) {
+  const qs = Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : '';
+  const url = `${BASE}/api/loyverse${path}${qs}`;
+  const headers = { 'Content-Type': 'application/json' };
+  // Si hay token local, lo mandamos como header (fallback si no hay env var en Netlify)
+  const tk = localStorage.getItem(TK_KEY);
+  if (tk) headers['X-Loyverse-Token'] = tk;
+  const r = await fetch(url, { headers });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function loadExpiries() {
+  try {
+    const r = await fetch(`${BASE}/api/expiries`);
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    if (d && !d._error) {
+      expiries = d;
+      localStorage.setItem(EX_KEY, JSON.stringify(d));
+      setSyncSt(true);
+      return true;
+    }
+  } catch(e) {}
+  // Fallback localStorage
+  try { expiries = JSON.parse(localStorage.getItem(EX_KEY) || '{}'); } catch(e) { expiries = {}; }
+  setSyncSt(false);
+  return false;
+}
+
+async function saveExpiries() {
+  localStorage.setItem(EX_KEY, JSON.stringify(expiries));
+  try {
+    const r = await fetch(`${BASE}/api/expiries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(expiries)
+    });
+    if (r.ok) { setSyncSt(true); return true; }
+  } catch(e) {}
+  setSyncSt(false);
+  return false;
+}
+
+function setSyncSt(online) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncTxt');
+  if (online) {
+    dot.classList.remove('off'); dot.classList.add('on');
+    txt.textContent = 'Compartido · ' + new Date().toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'});
+  } else {
+    dot.classList.add('off');
+    txt.textContent = 'Solo local · sin conexión al servidor';
+  }
+}
+
+// ── LOYVERSE SYNC ────────────────────────────────────────────────────────
+function saveToken() {
+  const t = document.getElementById('tokenInput').value.trim();
+  if (!t) { toast('Ingresá el token'); return; }
+  localStorage.setItem(TK_KEY, t);
+  document.getElementById('setupPanel').style.display = 'none';
+  syncLoyverse();
+}
+
+async function syncLoyverse() {
+  const btn = document.getElementById('syncBtn');
+  btn.classList.add('loading');
+  try {
+    let all = [], cursor = '';
+    do {
+      const params = { limit: 250 };
+      if (cursor) params.cursor = cursor;
+      const d = await apiLoyverse('/items', params);
+      if (d.error) throw new Error(d.error);
+      all = all.concat((d.items || []).map(i => ({
+        id: i.id,
+        name: i.item_name || 'Sin nombre',
+        category: i.category_name || 'Sin categoría'
+      })));
+      cursor = d.cursor || '';
+    } while (cursor);
+
+    if (all.length > 0) {
+      products = all;
+      localStorage.setItem(PC_KEY, JSON.stringify({ products, ts: Date.now() }));
+      toast(`✓ ${products.length} productos sincronizados`);
+    } else if (all.length === 0) {
+      toast('Loyverse respondió, pero sin productos');
+    }
+  } catch(e) {
+    const msg = e.message || '';
+    if (msg.includes('401') || msg.includes('Token')) {
+      document.getElementById('setupPanel').style.display = 'block';
+      toast('Token inválido — revisá la configuración');
+    } else {
+      // Usar caché
+      const c = localStorage.getItem(PC_KEY);
+      if (c) {
+        const d = JSON.parse(c);
+        products = d.products || [];
+        const ago = Math.round((Date.now() - d.ts) / 60000);
+        toast(`Sin conexión · usando caché (hace ${ago}min)`);
+      } else {
+        products = demoProds();
+        toast('Sin conexión · modo demo activo');
+      }
+    }
+  }
+  btn.classList.remove('loading');
+  renderList();
+}
+
+function demoProds() {
+  return [
+    {id:'d1',name:'Leche entera 1L',category:'Lácteos'},
+    {id:'d2',name:'Yogur frutilla x4',category:'Lácteos'},
+    {id:'d3',name:'Queso cremoso 200g',category:'Lácteos'},
+    {id:'d4',name:'Coca Cola 2.25L',category:'Bebidas'},
+    {id:'d5',name:'Agua mineral 500ml',category:'Bebidas'},
+    {id:'d6',name:'Sprite 1.5L',category:'Bebidas'},
+    {id:'d7',name:'Pan lactal',category:'Panadería'},
+    {id:'d8',name:'Medialunas x6',category:'Panadería'},
+    {id:'d9',name:'Salchicha viena 500g',category:'Fiambres'},
+    {id:'d10',name:'Mortadela 200g',category:'Fiambres'},
+    {id:'d11',name:'Helado vainilla 1L',category:'Congelados'},
+    {id:'d12',name:'Mermelada 400g',category:'Conservas'},
+  ];
+}
+
+// ── DÍAS / ESTADO ────────────────────────────────────────────────────────
+function getDays(ds) {
+  if (!ds) return null;
+  const d = new Date(ds + 'T12:00:00'), n = new Date();
+  n.setHours(0, 0, 0, 0);
+  return Math.round((d - n) / 86400000);
+}
+function getStatus(d) {
+  if (d === null) return 'nodate';
+  if (d < 0) return 'expired';
+  if (d <= 7) return 'urgent';
+  if (d <= 15) return 'warn';
+  if (d <= 30) return 'soon';
+  if (d <= 60) return 'ok';
+  return 'fine';
+}
+function getColor(s) {
+  return {expired:'red',urgent:'red',warn:'orange',soon:'yellow',ok:'green',fine:'green',nodate:'none'}[s]||'none';
+}
+function getLabel(d, s) {
+  if (s === 'nodate') return 'SIN FECHA';
+  if (s === 'expired') return `VENCIÓ ${Math.abs(d)}d`;
+  if (d === 0) return '¡HOY!';
+  if (s === 'urgent') return `${d}d — URGENTE`;
+  if (s === 'warn') return `${d}d — 15D`;
+  if (s === 'soon') return `${d}d — 1MES`;
+  return `${d}d — OK`;
+}
+function getEmoji(cat) {
+  const c = (cat || '').toLowerCase();
+  if (c.includes('lact')||c.includes('lech')||c.includes('queso')||c.includes('yogur')||c.includes('mant')) return '🥛';
+  if (c.includes('beb')||c.includes('gase')||c.includes('agua')||c.includes('jugo')||c.includes('vino')||c.includes('cerv')||c.includes('fern')) return '🥤';
+  if (c.includes('carn')||c.includes('pollo')||c.includes('pesc')) return '🥩';
+  if (c.includes('fiamb')||c.includes('salch')||c.includes('jamón')) return '🍖';
+  if (c.includes('pan')||c.includes('fact')||c.includes('media')||c.includes('panad')) return '🥐';
+  if (c.includes('conge')||c.includes('hela')) return '🧊';
+  if (c.includes('frut')||c.includes('verdu')) return '🥦';
+  if (c.includes('dulce')||c.includes('golos')) return '🍬';
+  if (c.includes('conserv')||c.includes('mermel')||c.includes('lata')) return '🥫';
+  return '📦';
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────
+function renderList() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const cnt = { all: 0, urgent: 0, warn: 0, ok: 0, nodate: 0, soon: 0 };
+
+  const merged = products.map(p => {
+    const ex = expiries[p.id] || {};
+    const d = getDays(ex.date), s = getStatus(d);
+    cnt.all++;
+    if (s === 'urgent' || s === 'expired') cnt.urgent++;
+    else if (s === 'warn') cnt.warn++;
+    else if (s === 'soon') cnt.soon++;
+    else if (s === 'ok' || s === 'fine') cnt.ok++;
+    else cnt.nodate++;
+    return { ...p, expDate: ex.date, expNote: ex.note, days: d, st: s };
+  });
+
+  document.getElementById('s7').textContent = cnt.urgent;
+  document.getElementById('s15').textContent = cnt.warn;
+  document.getElementById('s30').textContent = cnt.soon;
+  document.getElementById('s60').textContent = cnt.ok;
+  document.getElementById('ca').textContent = cnt.all;
+  document.getElementById('cu').textContent = cnt.urgent;
+  document.getElementById('cw').textContent = cnt.warn + cnt.soon;
+  document.getElementById('co').textContent = cnt.ok;
+  document.getElementById('cn0').textContent = cnt.nodate;
+
+  let list = merged;
+  if (activeFilter === 'urgent') list = merged.filter(p => p.st === 'urgent' || p.st === 'expired');
+  else if (activeFilter === 'warn') list = merged.filter(p => p.st === 'warn' || p.st === 'soon');
+  else if (activeFilter === 'ok') list = merged.filter(p => p.st === 'ok' || p.st === 'fine');
+  else if (activeFilter === 'nodate') list = merged.filter(p => p.st === 'nodate');
+
+  if (q) list = list.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+
+  list.sort((a, b) => {
+    if (a.days === null && b.days === null) return a.name.localeCompare(b.name);
+    if (a.days === null) return 1;
+    if (b.days === null) return -1;
+    return a.days - b.days;
+  });
+
+  const el = document.getElementById('list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-ico">${products.length === 0 ? '🔗' : '◎'}</div>
+      <p>${products.length === 0 ? '// sin productos\n// hacé sync con loyverse' : '// sin resultados\n// cambiá filtro o búsqueda'}</p>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(p => {
+    const col = getColor(p.st), lbl = getLabel(p.days, p.st), em = getEmoji(p.category);
+    const ds = p.expDate
+      ? new Date(p.expDate + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+      : '— —';
+    return `<div class="card ${col}" onclick="openEdit('${p.id}')">
+      <div class="c-icon">${em}</div>
+      <div class="c-body">
+        <div class="c-name">${p.name}</div>
+        <div class="c-meta">${p.category}${p.expNote ? ' · ' + p.expNote : ''}</div>
+      </div>
+      <div class="c-right">
+        <div class="c-date ${col}">${ds}</div>
+        <span class="badge ${col}">${lbl}</span>
+      </div>
+      <button class="del-btn" onclick="delExp(event,'${p.id}')" aria-label="Quitar fecha">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+
+// ── MODAL ────────────────────────────────────────────────────────────────
+function openModal() {
+  editId = null; selId = null;
+  document.getElementById('mTitle').textContent = '// CARGAR VENCIMIENTO';
+  document.getElementById('pSearch').value = '';
+  document.getElementById('eDate').value = '';
+  document.getElementById('eNote').value = '';
+  filterProds();
+  document.getElementById('ovl').classList.add('open');
+}
+
+function openEdit(id) {
+  editId = id; selId = id;
+  const p = products.find(x => x.id === id); if (!p) return;
+  const ex = expiries[id] || {};
+  document.getElementById('mTitle').textContent = '// EDITAR VENCIMIENTO';
+  document.getElementById('pSearch').value = p.name;
+  document.getElementById('eDate').value = ex.date || '';
+  document.getElementById('eNote').value = ex.note || '';
+  filterProds();
+  document.getElementById('ovl').classList.add('open');
+}
+
+function closeModal() { document.getElementById('ovl').classList.remove('open'); }
+function bgClose(e) { if (e.target === document.getElementById('ovl')) closeModal(); }
+
+function filterProds() {
+  const q = document.getElementById('pSearch').value.toLowerCase();
+  const res = products.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)).slice(0, 40);
+  document.getElementById('pList').innerHTML = res.map(p => `
+    <div class="p-item${p.id === selId ? ' sel' : ''}" onclick="selProd('${p.id}','${p.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}')">
+      <span style="font-size:17px">${getEmoji(p.category)}</span>
+      <div>
+        <div class="p-n">${p.name}</div>
+        <div class="p-c">${p.category}</div>
+      </div>
+    </div>`).join('');
+}
+
+function selProd(id, name) {
+  selId = id;
+  document.getElementById('pSearch').value = name;
+  filterProds();
+}
+
+async function saveExp() {
+  const id = selId || editId;
+  const date = document.getElementById('eDate').value;
+  const note = document.getElementById('eNote').value.trim();
+  if (!id) { toast('// seleccioná un producto'); return; }
+  if (!date) { toast('// ingresá la fecha de vencimiento'); return; }
+  expiries[id] = { date, note, at: new Date().toISOString() };
+  const ok = await saveExpiries();
+  closeModal();
+  renderList();
+  toast(ok ? '✓ guardado y sincronizado' : '✓ guardado localmente');
+}
+
+async function delExp(e, id) {
+  e.stopPropagation();
+  delete expiries[id];
+  await saveExpiries();
+  renderList();
+}
+
+// ── TOAST ────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+async function init() {
+  // Cargar caché local inmediatamente
+  try {
+    const c = localStorage.getItem(PC_KEY);
+    if (c) { const d = JSON.parse(c); products = d.products || []; }
+  } catch(e) {}
+  try { expiries = JSON.parse(localStorage.getItem(EX_KEY) || '{}'); } catch(e) { expiries = {}; }
+
+  // Cargar datos compartidos del servidor
+  await loadExpiries();
+
+  // Verificar token
+  const tk = localStorage.getItem(TK_KEY);
+  if (!tk) {
+    document.getElementById('setupPanel').style.display = 'block';
+    if (!products.length) products = demoProds();
+  } else if (!products.length) {
+    await syncLoyverse();
+  }
+
+  renderList();
+
+  // Auto-refresh compartido cada 90 segundos
+  setInterval(async () => {
+    await loadExpiries();
+    renderList();
+  }, 90000);
+}
+
+init();
+</script>
+</body>
+</html>
