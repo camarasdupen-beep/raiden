@@ -159,6 +159,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100
       <label>Producto</label>
       <input type="text" id="pSearch" placeholder="Buscar en lista de Loyverse..." autocomplete="off" oninput="renderProdList(this.value)"/>
       <div class="plist" id="pList"></div>
+      <input type="hidden" id="selectedId" value=""/>
     </div>
     <div class="field">
       <label>Fecha de vencimiento</label>
@@ -426,6 +427,7 @@ function openModal() {
   document.getElementById('pSearch').value = '';
   document.getElementById('eDate').value   = '';
   document.getElementById('eNote').value   = '';
+  document.getElementById('selectedId').value = '';
   renderProdList('');
   document.getElementById('modalWrap').classList.add('open');
 }
@@ -435,6 +437,7 @@ function openEdit(id) {
   for (var i = 0; i < products.length; i++) { if (products[i].id === id) { p = products[i]; break; } }
   if (!p) return;
   currentId = id;
+  document.getElementById('selectedId').value = id;
   var ex = expiries[id] || {};
   document.getElementById('mTitle').textContent = '// EDITAR VENCIMIENTO';
   document.getElementById('pSearch').value = p.name;
@@ -472,6 +475,7 @@ function renderProdList(q) {
 
 function selectProd(id) {
   currentId = id;
+  document.getElementById('selectedId').value = id;
   var p = null;
   for (var i = 0; i < products.length; i++) { if (products[i].id === id) { p = products[i]; break; } }
   if (!p) return;
@@ -485,7 +489,7 @@ function selectProd(id) {
 }
 
 function doSave() {
-  var id   = currentId;
+  var id = document.getElementById('selectedId').value || currentId;
   var date = document.getElementById('eDate').value;
   var note = document.getElementById('eNote').value.trim();
   if (!id)   { showToast('Seleccioná un producto de la lista'); return; }
