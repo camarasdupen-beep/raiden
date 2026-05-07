@@ -254,9 +254,24 @@ function loadExpiries() {
   return fetch('/api/expiries')
     .then(function(r){ return r.json(); })
     .then(function(d){
-      if (d && !d._error) {
-        expiries = d;
-        localStorage.setItem(EX_KEY, JSON.stringify(d));
+      if (d && !d._error && typeof d === 'object') {
+        // Mergear: los datos locales más recientes ganan
+        var local = {};
+        try { local = JSON.parse(localStorage.getItem(EX_KEY) || '{}'); } catch(e){}
+        var merged = {};
+        // Primero cargar los del servidor
+        var keys = Object.keys(d);
+        for (var i = 0; i < keys.length; i++) merged[keys[i]] = d[keys[i]];
+        // Los locales más recientes sobreescriben
+        var lkeys = Object.keys(local);
+        for (var j = 0; j < lkeys.length; j++) {
+          var k = lkeys[j];
+          if (!merged[k] || (local[k].at && merged[k].at && local[k].at > merged[k].at)) {
+            merged[k] = local[k];
+          }
+        }
+        expiries = merged;
+        localStorage.setItem(EX_KEY, JSON.stringify(merged));
         setSyncStatus(true);
       } else {
         throw new Error('no data');
@@ -489,16 +504,27 @@ function selectProd(id) {
 }
 
 function doSave() {
-  var id = document.getElementById('selectedId').value || currentId;
+  var id   = document.getElementById('selectedId').value || currentId;
   var date = document.getElementById('eDate').value;
   var note = document.getElementById('eNote').value.trim();
-  if (!id)   { showToast('Seleccioná un producto de la lista'); return; }
-  if (!date) { showToast('Ingresá la fecha de vencimiento'); return; }
+
+  if (!id)   { showToast('Seleccioná un producto'); return; }
+  if (!date) { showToast('Ingresá la fecha'); return; }
+
+  // 1. Guardar en memoria
   expiries[id] = { date: date, note: note, at: new Date().toISOString() };
+
+  // 2. Guardar en localStorage INMEDIATAMENTE
+  try { localStorage.setItem(EX_KEY, JSON.stringify(expiries)); } catch(e){}
+
+  // 3. Cerrar modal y actualizar pantalla
   closeModal();
   renderList();
+  showToast('✓ guardado');
+
+  // 4. Subir al servidor (en segundo plano)
   saveExpiries().then(function(ok){
-    showToast(ok ? '✓ guardado y sincronizado' : '✓ guardado localmente');
+    if (ok) showToast('✓ guardado y sincronizado');
   });
 }
 
