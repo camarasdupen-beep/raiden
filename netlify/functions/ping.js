@@ -1,4 +1,3 @@
-// ping.js — diagnóstico de conexión con Upstash
 const HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Content-Type': 'application/json',
@@ -7,25 +6,38 @@ const HEADERS = {
 exports.handler = async () => {
   const URL   = process.env.UPSTASH_REDIS_REST_URL;
   const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const KEY   = 'raiden_expiries_v2';
 
   if (!URL || !TOKEN) {
-    return {
-      statusCode: 200, headers: HEADERS,
-      body: JSON.stringify({ ok: false, error: 'Env vars no configuradas', URL: !!URL, TOKEN: !!TOKEN }),
-    };
+    return { statusCode: 200, headers: HEADERS,
+      body: JSON.stringify({ error: 'env vars faltantes' }) };
   }
 
+  const results = {};
+
+  // 1. PING
   try {
-    const r    = await fetch(`${URL}/ping`, { headers: { Authorization: `Bearer ${TOKEN}` } });
-    const text = await r.text();
-    return {
-      statusCode: 200, headers: HEADERS,
-      body: JSON.stringify({ ok: r.ok, status: r.status, response: text, url_prefix: URL.substring(0, 30) }),
-    };
-  } catch (e) {
-    return {
-      statusCode: 200, headers: HEADERS,
-      body: JSON.stringify({ ok: false, error: e.message }),
-    };
-  }
+    const r = await fetch(`${URL}/ping`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    results.ping = await r.text();
+  } catch(e) { results.ping = 'ERROR: ' + e.message; }
+
+  // 2. SET de prueba
+  try {
+    const r = await fetch(`${URL}/set/${KEY}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(JSON.stringify({ _test: true, ts: Date.now() }))
+    });
+    results.set_status = r.status;
+    results.set_body = await r.text();
+  } catch(e) { results.set = 'ERROR: ' + e.message; }
+
+  // 3. GET para confirmar
+  try {
+    const r = await fetch(`${URL}/get/${KEY}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    results.get_status = r.status;
+    results.get_body = await r.text();
+  } catch(e) { results.get = 'ERROR: ' + e.message; }
+
+  return { statusCode: 200, headers: HEADERS, body: JSON.stringify(results, null, 2) };
 };
