@@ -685,17 +685,20 @@ function renderList() {
     const ds = p.expDate
       ? new Date(p.expDate + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
       : '— —';
-    return `<div class="card ${col}" onclick="openEdit('${p.id}')">
+    const safeName = p.name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const safeCat  = p.category.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeNote = (p.expNote||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="card ${col}" data-id="${p.id}" data-action="edit">
       <div class="c-icon">${em}</div>
       <div class="c-body">
-        <div class="c-name">${p.name}</div>
-        <div class="c-meta">${p.category}${p.expNote ? ' · ' + p.expNote : ''}</div>
+        <div class="c-name">${safeName}</div>
+        <div class="c-meta">${safeCat}${safeNote ? ' · ' + safeNote : ''}</div>
       </div>
       <div class="c-right">
         <div class="c-date ${col}">${ds}</div>
         <span class="badge ${col}">${lbl}</span>
       </div>
-      <button class="del-btn" onclick="delExp(event,'${p.id}')" aria-label="Quitar fecha">
+      <button class="del-btn" data-id="${p.id}" data-action="del" aria-label="Quitar fecha">
         <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>`;
@@ -738,20 +741,27 @@ function bgClose(e) { if (e.target === document.getElementById('ovl')) closeModa
 function filterProds() {
   const q = document.getElementById('pSearch').value.toLowerCase();
   const res = products.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)).slice(0, 40);
-  document.getElementById('pList').innerHTML = res.map(p => `
-    <div class="p-item${p.id === selId ? ' sel' : ''}" onclick="selProd('${p.id}','${p.name.replace(/'/g,"\\'").replace(/"/g,"&quot;")}')">
+  document.getElementById('pList').innerHTML = res.map(p => {
+    const safeName = p.name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const safeCat  = p.category.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="p-item${p.id === selId ? ' sel' : ''}" data-id="${p.id}" data-action="pick">
       <span style="font-size:17px">${getEmoji(p.category)}</span>
       <div>
-        <div class="p-n">${p.name}</div>
-        <div class="p-c">${p.category}</div>
+        <div class="p-n">${safeName}</div>
+        <div class="p-c">${safeCat}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function selProd(id, name) {
   selId = id;
   document.getElementById('pSearch').value = name;
-  filterProds();
+  // Re-render la lista para marcar el seleccionado
+  const items = document.querySelectorAll('#pList [data-action="pick"]');
+  items.forEach(el => {
+    el.classList.toggle('sel', el.dataset.id === id);
+  });
 }
 
 async function saveExp() {
@@ -782,6 +792,30 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
+
+// ── EVENT DELEGATION (evita bugs con caracteres especiales en nombres) ──────
+document.getElementById('list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+  if (action === 'del') {
+    e.stopPropagation();
+    delete expiries[id];
+    await saveExpiries();
+    renderList();
+  } else if (action === 'edit') {
+    openEdit(id);
+  }
+});
+
+document.getElementById('pList').addEventListener('click', (e) => {
+  const item = e.target.closest('[data-action="pick"]');
+  if (!item) return;
+  const id = item.dataset.id;
+  const prod = products.find(p => p.id === id);
+  if (prod) selProd(id, prod.name);
+});
 
 // ── INIT ─────────────────────────────────────────────────────────────────
 async function init() {
