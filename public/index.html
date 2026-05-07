@@ -180,7 +180,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100
 <div id="debugPanel" style="position:fixed;bottom:0;left:0;right:0;background:#0a0f1a;border-top:1px solid #f25757;padding:8px 12px;z-index:400;font-family:monospace;font-size:11px;color:#f25757;max-height:160px;overflow-y:auto;display:none">
   <div style="display:flex;justify-content:space-between;margin-bottom:4px">
     <span style="font-weight:bold">// DEBUG</span>
-    <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#f25757;cursor:pointer;font-size:14px">✕</button>
+    <div style="display:flex;gap:8px">
+      <button onclick="resetAll()" style="background:#f25757;border:none;color:#fff;cursor:pointer;font-size:10px;padding:2px 8px;border-radius:3px;font-family:monospace">RESET TODO</button>
+      <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#f25757;cursor:pointer;font-size:14px">✕</button>
+    </div>
   </div>
   <div id="debugLog"></div>
 </div>
@@ -193,6 +196,22 @@ var activeFilter = 'all';
 var currentId    = null;
 
 var TK_KEY = 'lv_token_v2';
+
+function resetAll() {
+  if (!confirm('Borrar TODOS los vencimientos guardados y empezar de cero?')) return;
+  expiries = {};
+  localStorage.removeItem(EX_KEY);
+  // Limpiar también en el servidor
+  fetch('/api/expiries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  }).then(function(){ 
+    dbg('RESET OK - servidor limpiado');
+    renderList();
+    showToast('✓ Reset completo');
+  }).catch(function(e){ dbg('RESET ERR: ' + e); });
+}
 
 function dbg(msg) {
   var el = document.getElementById('debugLog');
