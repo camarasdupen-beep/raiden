@@ -185,10 +185,10 @@ var activeFilter = 'all';
 var currentId    = null;
 
 var TK_KEY = 'lv_token_v2';
-
-
 var PC_KEY = 'lv_prods_v3';
 var EX_KEY = 'lv_expiries_v3';
+var SK_KEY = 'lv_stock_v1';
+var stock  = {};
 
 /* ── UTILS ────────────────────────────────────────────────────── */
 function esc(s) {
@@ -324,7 +324,8 @@ function syncLoyverse() {
       if (d.error) throw new Error(d.error);
       var items = d.items || [];
       items.forEach(function(i){
-        all.push({ id: i.id, name: i.item_name || 'Sin nombre', category: i.category_name || 'Sin categoría' });
+        var variantId = (i.variants && i.variants.length > 0) ? i.variants[0].variant_id : null;
+        all.push({ id: i.id, name: i.item_name || 'Sin nombre', category: i.category_name || 'Sin categoría', variantId: variantId });
       });
       if (d.cursor) return fetchPage(d.cursor);
     });
@@ -334,8 +335,12 @@ function syncLoyverse() {
       if (all.length > 0) {
         products = all;
         localStorage.setItem(PC_KEY, JSON.stringify({ products: products, ts: Date.now() }));
-        showToast('✓ ' + products.length + ' productos sincronizados');
       }
+      // Traer inventario
+      return fetchStock();
+    })
+    .then(function(){
+      showToast('✓ ' + products.length + ' productos sincronizados');
     })
     .catch(function(e){
       if (String(e).includes('401')) {
@@ -350,6 +355,34 @@ function syncLoyverse() {
     .finally(function(){
       btn.classList.remove('loading');
       renderList();
+    });
+}
+
+function fetchStock() {
+  var allStock = {};
+  function fetchStockPage(cursor) {
+    var qs = cursor ? '?cursor=' + cursor + '&limit=250' : '?limit=250';
+    return fetch('/api/loyverse/inventory' + qs, {
+      headers: { 'X-Loyverse-Token': localStorage.getItem(TK_KEY) || '' }
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var levels = d.inventory_levels || [];
+      levels.forEach(function(l){
+        // Acumular stock por variant_id sumando todas las ubicaciones
+        if (!allStock[l.variant_id]) allStock[l.variant_id] = 0;
+        allStock[l.variant_id] += (l.in_stock || 0);
+      });
+      if (d.cursor) return fetchStockPage(d.cursor);
+    });
+  }
+  return fetchStockPage('')
+    .then(function(){
+      stock = allStock;
+      localStorage.setItem(SK_KEY, JSON.stringify(stock));
+    })
+    .catch(function(){ 
+      try { stock = JSON.parse(localStorage.getItem(SK_KEY) || '{}'); } catch(e){ stock = {}; }
     });
 }
 
@@ -380,7 +413,10 @@ function renderList() {
     else if (s==='soon')             cnt.soon++;
     else if (s==='ok'||s==='fine')   cnt.ok++;
     else                             cnt.nodate++;
-    return { id:p.id, name:p.name, category:p.category, expDate:ex.date, expNote:ex.note||'', days:d, st:s };
+    // Buscar stock: los productos tienen variants, guardamos el total
+    var qty = null;
+    if (p.variantId && stock[p.variantId] !== undefined) qty = stock[p.variantId];
+    return { id:p.id, name:p.name, category:p.category, expDate:ex.date, expNote:ex.note||'', days:d, st:s, qty:qty };
   });
 
   document.getElementById('s7').textContent  = cnt.urgent;
@@ -420,10 +456,15 @@ function renderList() {
     var em  = emojiOf(p.category);
     var ds  = p.expDate ? new Date(p.expDate+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '— —';
     var note = p.expNote ? ' · ' + esc(p.expNote) : '';
-    var pid = esc(p.id);
+    var pid  = esc(p.id);
+    var qtyHtml = '';
+    if (p.qty !== null && p.qty !== undefined) {
+      var qtyCol = p.qty <= 0 ? 'color:var(--red)' : p.qty <= 3 ? 'color:var(--ora)' : 'color:var(--tx2)';
+      qtyHtml = '<span style="font-size:11px;font-family:var(--mono);' + qtyCol + ';margin-left:6px">▪ ' + p.qty + ' u.</span>';
+    }
     html += '<div class="card ' + col + '" onclick="openEdit(\'' + pid + '\')">'
       + '<div class="cicon">' + em + '</div>'
-      + '<div class="cbody"><div class="cname">' + esc(p.name) + '</div><div class="cmeta">' + esc(p.category) + note + '</div></div>'
+      + '<div class="cbody"><div class="cname">' + esc(p.name) + '</div><div class="cmeta">' + esc(p.category) + note + qtyHtml + '</div></div>'
       + '<div class="cright"><div class="cdate ' + col + '">' + ds + '</div><span class="badge ' + col + '">' + lbl + '</span></div>'
       + '<button class="delbtn" onclick="event.stopPropagation();doDelete(\'' + pid + '\')">'
       + '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
@@ -538,6 +579,7 @@ function doDelete(id) {
 function init() {
   try { products = JSON.parse(localStorage.getItem(PC_KEY)).products || []; } catch(e){}
   try { expiries = JSON.parse(localStorage.getItem(EX_KEY) || '{}'); } catch(e){ expiries = {}; }
+  try { stock = JSON.parse(localStorage.getItem(SK_KEY) || '{}'); } catch(e){ stock = {}; }
 
   loadExpiries().then(function(){
     var tk = localStorage.getItem(TK_KEY);
